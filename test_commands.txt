@@ -1,0 +1,9 @@
+Newgraph 5,5
+Newedge 0,1,10.0
+Newedge 1,2,5.0
+Newedge 2,3,3.0
+Removeedge 0,1
+Boruvka
+Prim
+Newgraph abc
+Newedge 0,xyz
