@@ -72,6 +72,17 @@ public:
         numVertices--;
     }
 
+    // Get all edges in the graph as a vector of pairs
+    std::vector<std::pair<int, std::pair<int, double>>> getEdges() const {
+        std::vector<std::pair<int, std::pair<int, double>>> edges;
+        for (const auto& [u, neighbors] : adjList) {
+            for (const auto& [v, weight] : neighbors) {
+                edges.push_back({u, {v, weight}});
+            }
+        }
+        return edges;
+    }
+
     // Get all the neighbors of a given vertex
     std::list<std::pair<int, double>> getNeighbors(int u) const {
         if (adjList.find(u) != adjList.end()) {
@@ -103,25 +114,33 @@ public:
 };
 
 // Example usage
-//int main() {
-//    Graph graph(5);  // Create a graph with 5 vertices
-//
-//    // Add directed edges with weights
-//    graph.addEdge(0, 1, 10.0);
-//    graph.addEdge(0, 3, 5.0);
-//    graph.addEdge(1, 2, 1.0);
-//    graph.addEdge(3, 4, 2.0);
-//
-//    // Update edge weight
-//    graph.updateEdgeWeight(0, 3, 8.0);
-//
-//    // Check if an edge exists
-//    std::cout << "Edge 0 -> 3 exists: " << graph.edgeExists(0, 3) << std::endl;
-//
-//    // Print the graph
-//    graph.printGraph();
-//
-//    return 0;
-//}
+int main() {
+    Graph graph(5);  // Create a graph with 5 vertices
+
+    // Add directed edges with weights
+    graph.addEdge(0, 1, 10.0);
+    graph.addEdge(0, 3, 5.0);
+    graph.addEdge(1, 2, 1.0);
+    graph.addEdge(3, 4, 2.0);
+
+    // Print the edges
+    std::vector<std::pair<int, std::pair<int, double>>> edges = graph.getEdges();
+    std::cout << "Edges in the graph:" << std::endl;
+    for (const auto& edge : edges) {
+        std::cout << edge.first << " -> " << edge.second.first 
+                  << " (weight: " << edge.second.second << ")" << std::endl;
+    }
+
+    // Update edge weight
+    graph.updateEdgeWeight(0, 3, 8.0);
+
+    // Check if an edge exists
+    std::cout << "Edge 0 -> 3 exists: " << graph.edgeExists(0, 3) << std::endl;
+
+    // Print the graph
+    graph.printGraph();
+
+    return 0;
+}
 
 
