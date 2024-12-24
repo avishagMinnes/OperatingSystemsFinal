@@ -140,33 +140,5 @@ private:
     }
 };
 
-// Example usage
-//int main() {
-//    MSTTree mstTree(5);  // Create an MST tree with 5 vertices
-//
-//    // Add edges to the MST
-//    mstTree.addEdge(0, 1, 10.0);
-//    mstTree.addEdge(0, 3, 5.0);
-//    mstTree.addEdge(1, 2, 1.0);
-//    mstTree.addEdge(3, 4, 2.0);
-//
-//    // Print the tree
-//    std::cout << "Tree structure:" << std::endl;
-//    mstTree.printTree();
-//
-//    // Get total weight of the MST
-//    std::cout << "Total weight of MST: " << mstTree.getTotalWeight() << std::endl;
-//
-//    // Calculate longest distance between two vertices
-//    double longestDistance = mstTree.findTreeDiameter();
-//    std::cout << "Longest distance between two vertices: " << longestDistance << std::endl;
-//
-//    // Calculate average distance between all pairs of vertices
-//    double avgDistance = mstTree.averageDistanceBetweenVertices();
-//    std::cout << "Average distance between vertices: " << avgDistance << std::endl;
-//
-//    return 0;
-//}
-
 
 
