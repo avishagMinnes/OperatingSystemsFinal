@@ -12,14 +12,21 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include "MSTFactory.cpp"
+#include "Graph.cpp"
+#include <fcntl.h>
 
 #define PORT 8080
 #define NUM_THREADS 4
 
 using namespace std;
-using namespace std::chrono;
 
 bool stopServer = false;
+
+// **Utility: Sanitize Input**
+void sanitizeInput(string& command) {
+    command.erase(remove(command.begin(), command.end(), '\n'), command.end());
+    command.erase(remove(command.begin(), command.end(), '\r'), command.end());
+}
 
 // **Stage 1: Parse Command**
 class ParseCommandStage {
@@ -29,6 +36,11 @@ public:
         string token;
         stringstream ss(command);
         while (getline(ss, token, ' ')) {
+            size_t pos = 0;
+            while ((pos = token.find(',')) != string::npos) {
+                tokens.push_back(token.substr(0, pos));
+                token.erase(0, pos + 1);
+            }
             tokens.push_back(token);
         }
         string commandType = tokens.empty() ? "" : tokens[0];
@@ -56,28 +68,40 @@ public:
 private:
     static string createGraph(const vector<string>& args, unique_ptr<Graph>& graph) {
         if (args.size() < 2) return "Error: Invalid Newgraph command format\n";
-        int n = stoi(args[0]);
-        graph = make_unique<Graph>(n);
-        return "Graph created\n";
+        try {
+            int n = stoi(args[0]);
+            graph = make_unique<Graph>(n);
+            return "Graph created\n";
+        } catch (const exception& e) {
+            return "Error: Invalid arguments for Newgraph\n";
+        }
     }
 
     static string addEdge(const vector<string>& args, unique_ptr<Graph>& graph) {
         if (!graph) return "Error: Graph not initialized\n";
         if (args.size() < 3) return "Error: Invalid Newedge command format\n";
-        int u = stoi(args[0]);
-        int v = stoi(args[1]);
-        double weight = stod(args[2]);
-        graph->addEdge(u, v, weight);
-        return "Edge added\n";
+        try {
+            int u = stoi(args[0]);
+            int v = stoi(args[1]);
+            double weight = stod(args[2]);
+            graph->addEdge(u, v, weight);
+            return "Edge added\n";
+        } catch (const exception& e) {
+            return "Error: Invalid arguments for Newedge\n";
+        }
     }
 
     static string removeEdge(const vector<string>& args, unique_ptr<Graph>& graph) {
         if (!graph) return "Error: Graph not initialized\n";
         if (args.size() < 2) return "Error: Invalid Removeedge command format\n";
-        int u = stoi(args[0]);
-        int v = stoi(args[1]);
-        graph->removeEdge(u, v);
-        return "Edge removed\n";
+        try {
+            int u = stoi(args[0]);
+            int v = stoi(args[1]);
+            graph->removeEdge(u, v);
+            return "Edge removed\n";
+        } catch (const exception& e) {
+            return "Error: Invalid arguments for Removeedge\n";
+        }
     }
 
     static string calculateMST(const string& algorithmType, unique_ptr<Graph>& graph) {
@@ -85,48 +109,56 @@ private:
         unique_ptr<IMSTSolver> solver = MSTFactory::createSolver(algorithmType);
         vector<pair<int, pair<int, double>>> edges = graph->getEdges();
 
-        auto start = high_resolution_clock::now();
-        list<pair<int, int>> mstEdges = solver->solve(graph->getNumVertices(), edges);
-        auto end = high_resolution_clock::now();
-        auto duration = duration_cast<milliseconds>(end - start).count();
-
         string result = "MST:\n";
+        auto start = chrono::high_resolution_clock::now();
+        list<pair<int, int>> mstEdges = solver->solve(graph->getNumVertices(), edges);
+        auto end = chrono::high_resolution_clock::now();
+
         for (const auto& edge : mstEdges) {
             result += to_string(edge.first) + " - " + to_string(edge.second) + "\n";
         }
-        result += "Time taken: " + to_string(duration) + " ms\n";
+        result += "Time taken: " + to_string(chrono::duration_cast<chrono::milliseconds>(end - start).count()) + " ms\n";
         return result;
     }
 };
 
-// **Stage 3: Format Result and Send to Client**
-class ResultFormattingStage {
-public:
-    static void sendResult(int clientSocket, const string& result) {
-        send(clientSocket, result.c_str(), result.size(), 0);
-        close(clientSocket);
-    }
-};
-
-// Task class for thread pool
+// **Task Class**
 class Task {
 public:
-    Task(int clientSocket, string command, unique_ptr<Graph>& graph)
-            : clientSocket(clientSocket), command(command), graph(graph) {}
+    Task(int clientSocket, unique_ptr<Graph>& graph) : clientSocket(clientSocket), graph(graph) {}
 
     void execute() {
-        auto [commandType, args] = ParseCommandStage::parse(command);
-        string result = CommandExecutionStage::execute(commandType, args, graph);
-        ResultFormattingStage::sendResult(clientSocket, result);
+        char buffer[1024] = {0};
+        while (true) {
+            int bytesRead = read(clientSocket, buffer, sizeof(buffer));
+            if (bytesRead <= 0) {
+                cout << "Client disconnected." << endl;
+                break;
+            }
+
+            string command(buffer, bytesRead);
+            sanitizeInput(command);
+            cout << "Received command: '" << command << "'" << endl;
+
+            if (command == "quit") {
+                cout << "Client requested to close the connection." << endl;
+                break;
+            }
+
+            auto [commandType, args] = ParseCommandStage::parse(command);
+            string result = CommandExecutionStage::execute(commandType, args, graph);
+            send(clientSocket, result.c_str(), result.size(), 0);
+            memset(buffer, 0, sizeof(buffer));
+        }
+        close(clientSocket);
     }
 
 private:
     int clientSocket;
-    string command;
     unique_ptr<Graph>& graph;
 };
 
-// Leader-Follower Thread Pool
+// **Thread Pool**
 class ThreadPool {
 public:
     ThreadPool(size_t numThreads) : stop(false) {
@@ -173,15 +205,16 @@ private:
     bool stop;
 };
 
-// Server function
+// **Server Thread**
 void serverThread(ThreadPool& pool, unique_ptr<Graph>& graph) {
-    int server_fd, newSocket;
+    int server_fd;
     struct sockaddr_in address;
     int opt = 1;
     int addrlen = sizeof(address);
 
+    // Create and bind socket
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("Socket failed");
+        perror("Socket creation failed");
         exit(EXIT_FAILURE);
     }
 
@@ -204,37 +237,47 @@ void serverThread(ThreadPool& pool, unique_ptr<Graph>& graph) {
         exit(EXIT_FAILURE);
     }
 
+    // Set the socket to non-blocking mode
+    fcntl(server_fd, F_SETFL, O_NONBLOCK);
+
+    cout << "Server running on port " << PORT << ". Waiting for connections..." << endl;
+
     while (!stopServer) {
-        cout << "Waiting for a connection..." << endl;
-        if ((newSocket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
+        int clientSocket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen);
+        if (clientSocket >= 0) {
+            cout << "Connection accepted from " << inet_ntoa(address.sin_addr) << ":" << ntohs(address.sin_port) << endl;
+            Task* task = new Task(clientSocket, graph);
+            pool.enqueue(task);
+        } else if (errno == EWOULDBLOCK || errno == EAGAIN) {
+            // No connection, check the stopServer flag
+            this_thread::sleep_for(chrono::milliseconds(100));
+        } else {
             perror("Accept failed");
-            continue;
         }
-        cout << "Connection accepted" << endl;
-
-        char buffer[1024] = {0};
-        read(newSocket, buffer, 1024);
-        string command(buffer);
-
-        Task* task = new Task(newSocket, command, graph);
-        pool.enqueue(task);
     }
 
     close(server_fd);
+    cout << "Server shut down." << endl;
 }
 
-// Main function
-//int main() {
-//    ThreadPool pool(NUM_THREADS);
-//    unique_ptr<Graph> graph = nullptr;
-//
-//    thread server(serverThread, ref(pool), ref(graph));
-//    cout << "Enter 'stop' to shutdown the server: ";
-//    string input;
-//    while (cin >> input && input != "stop") {}
-//
-//    stopServer = true;
-//    server.join();
-//
-//    return 0;
-//}
+int main() {
+    ThreadPool pool(NUM_THREADS);
+    unique_ptr<Graph> graph = nullptr;
+
+    // Start the server thread
+    thread server(serverThread, ref(pool), ref(graph));
+    cout << "Enter 'stop' to shutdown the server: ";
+
+    string input;
+    while (cin >> input) {
+        if (input == "stop") {
+            stopServer = true;  // Signal the server thread to stop
+            break;
+        }
+    }
+
+    server.join();  // Wait for the server thread to finish
+    cout << "Server has been shut down." << endl;
+
+    return 0;
+}
