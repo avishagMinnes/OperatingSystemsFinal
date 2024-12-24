@@ -1,9 +1,14 @@
-Newgraph 5,5
+Newgraph 5,5                 # Valid graph creation
 Newedge 0,1,10.0
 Newedge 1,2,5.0
 Newedge 2,3,3.0
-Removeedge 0,1
-Boruvka
-Prim
-Newgraph abc
-Newedge 0,xyz
+Newedge 3,4,2.0
+Boruvka                      # Calculate MST using Boruvka
+Prim                         # Calculate MST using Prim
+Removeedge 1,2               # Remove a valid edge
+Newgraph                     # Invalid graph creation (missing arguments)
+Newgraph x
+InvalidCommand
+Newedge x,y,z                # Invalid edge addition (non-existent vertices)
+Removeedge x,y               # Invalid edge removal (non-numeric arguments)
+quit                         # Disconnect
