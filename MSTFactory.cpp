@@ -20,36 +20,3 @@ public:
     }
 };
 
-//int main() {
-//    int numVertices = 5;
-//    std::vector<std::pair<int, std::pair<int, double>>> edges = {
-//            {0, {1, 10.0}}, {0, {3, 5.0}}, {1, {2, 1.0}}, {3, {4, 2.0}}, {2, {4, 3.0}}
-//    };
-//
-//    try {
-//        // Example: Using Boruvka's algorithm
-//        std::unique_ptr<IMSTSolver> solver = MSTFactory::createSolver("Boruvka");
-//        std::list<std::pair<int, int>> mst = solver->solve(numVertices, edges);
-//
-//        std::cout << "MST Edges (Boruvka):\n";
-//        for (const auto& edge : mst) {
-//            std::cout << edge.first << " - " << edge.second << "\n";
-//        }
-//
-//        // Example: Using Prim's algorithm
-//        solver = MSTFactory::createSolver("Prim");
-//        mst = solver->solve(numVertices, edges);
-//
-//        std::cout << "MST Edges (Prim):\n";
-//        for (const auto& edge : mst) {
-//            std::cout << edge.first << " - " << edge.second << "\n";
-//        }
-//
-//    } catch (const std::exception& e) {
-//        std::cerr << "Error: " << e.what() << std::endl;
-//    }
-//
-//    return 0;
-//}
-
-
