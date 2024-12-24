@@ -1,3 +1,5 @@
+#include <iostream>
+
 class Vertex {
 public:
     int id;
